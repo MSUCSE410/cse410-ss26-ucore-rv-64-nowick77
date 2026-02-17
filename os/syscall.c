@@ -1,3 +1,4 @@
+#include "proc.h"
 #include "syscall.h"
 #include "defs.h"
 #include "loader.h"
@@ -39,6 +40,17 @@ uint64 sys_gettimeofday(TimeVal *val, int _tz)
 /*
 * LAB1: you may need to define sys_task_info here
 */
+//initializes TaskInfo struct
+int sys_task_info(TaskInfo *ti)
+{
+	struct proc *p = curr_proc();
+	ti->status = 2; // magic number 2 is running on user side (always running for taskinfo syscall)
+	ti->time = get_cycle() / (CPU_FREQ / 1000) - p->start_time; //get start time from process
+	for (int i = 0; i < MAX_SYSCALL_NUM; i++) {
+		ti->syscall_times[i] = p->syscall_times[i]; //record number of syscall times from process array
+	}
+	return 0;
+}
 
 extern char trap_page[];
 
@@ -53,6 +65,10 @@ void syscall()
 	/*
 	* LAB1: you may need to update syscall counter for task info here
 	*/
+	//increments current process counter for syscall that was invoked
+	if (id >= 0 && id < MAX_SYSCALL_NUM) {
+		curr_proc()->syscall_times[id]++;
+	}
 	switch (id) {
 	case SYS_write:
 		ret = sys_write(args[0], (char *)args[1], args[2]);
@@ -69,6 +85,9 @@ void syscall()
 	/*
 	* LAB1: you may need to add SYS_taskinfo case here
 	*/
+	case SYS_task_info:
+		ret = sys_task_info((TaskInfo *)args[0]);
+		break;
 	default:
 		ret = -1;
 		errorf("unknown syscall %d", id);
